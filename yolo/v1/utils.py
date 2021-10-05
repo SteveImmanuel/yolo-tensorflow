@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 from typing import List
 
 @tf.function(experimental_follow_type_hints=True)
@@ -37,6 +38,16 @@ def calculate_iou(bbox1: tf.Tensor, bbox2: tf.Tensor) -> tf.Tensor:
 
     return area_inter / (area_bbox1 + area_bbox2 - area_inter + 1e-6)
 
+def argmax_to_max(arr, argmax, axis):
+    # taken from https://stackoverflow.com/questions/46103044/index-n-dimensional-array-with-n-1-d-array
+    """argmax_to_max(arr, arr.argmax(axis), axis) == arr.max(axis)"""
+    new_shape = list(arr.shape)
+    del new_shape[axis]
+
+    grid = np.ogrid[tuple(map(slice, new_shape))]
+    grid.insert(axis, argmax)
+
+    return arr[tuple(grid)]
 
 if __name__ == '__main__':
     assert calculate_iou(tf.constant([[.25, .25, .5, .5]]), tf.constant([[.75, .75, .5, .5]])).numpy() == 0

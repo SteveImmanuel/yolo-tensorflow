@@ -40,18 +40,17 @@ class YoloV1Model(Model):
 
     def call(self, inputs):
         for layer in self.model_layers:
-            inputs = layer(input)
+            inputs = layer(inputs)
         return inputs
+
 
 class FastYoloV1Model(YoloV1Model):
     def __init__(self, S=7, C=20, B=2) -> None:
         super(FastYoloV1Model, self).__init__(layer_config=FAST_ARCHITECTURE, S=S, C=C, B=B)
 
 
-
 if __name__ == '__main__':
     model = FastYoloV1Model()
     model.build(input_shape=(None, 448, 448, 3))
-    # model.call(Input(shape=(448, 448, 3)))
-
+    model.call(Input(shape=(448, 448, 3)))
     model.summary()

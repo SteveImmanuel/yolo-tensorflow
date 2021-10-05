@@ -1,9 +1,19 @@
 import tensorflow as tf
+from typing import List
 
+@tf.function(experimental_follow_type_hints=True)
+def calculate_iou(bbox1: tf.Tensor, bbox2: tf.Tensor) -> tf.Tensor:
+    """Calculate intersection over union between bounding boxes.
+    bbox shape = (BATCH_SIZE, S, S, 4)
+    4 -> x, y, w, h
+    
+    Args:
+        bbox1 (tf.Tensor) 
+        bbox2 (tf.Tensor) 
 
-@tf.function
-def calculate_iou(bbox1, bbox2):
-    # bbox shape = (BATCH_SIZE, 4), 4 -> x, y, w, h
+    Returns:
+        tf.Tensor: (BATCH_SIZE, S, S)
+    """
     area_bbox1 = bbox1[..., 2] * bbox1[..., 3]
     area_bbox2 = bbox2[..., 2] * bbox2[..., 3]
 

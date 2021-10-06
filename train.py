@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser.add_argument('--train-annot-dir', help='Directory path to training annotation', required=True)
     parser.add_argument('--train-img-dir', help='Directory path to training images', required=True)
     parser.add_argument('--val-annot-dir', help='Directory path to validation annotation', required=True)
-    parser.add_argument('--val-annot-dir', help='Directory path to validation images', required=True)
+    parser.add_argument('--val-img-dir', help='Directory path to validation images', required=True)
     parser.add_argument('--batch-size', help='Batch size for training', default=16, type=int)
     parser.add_argument('--epoch', help='Total epoch', default=20, type=int)
     
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     val_img_dir = args.val_img_dir
     batch_size = args.batch_size
     epoch = args.epoch
-    
+
     model = FastYoloV1Model()
     loss = YoloV1Loss()
     model.build(input_shape=(None, 448, 448, 3))

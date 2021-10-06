@@ -103,6 +103,7 @@ class PascalVOCDataset(Sequence):
 
         img_path = os.path.join(self.img_dir, img_filename)
         img_arr = cv2.imread(img_path)
+        img_arr = (img_arr / 255.0 - 0.5) * 2
 
         xml_file.close()
         return img_arr, np.array(bboxes)
@@ -138,7 +139,7 @@ class PascalVOCDataset(Sequence):
             img_arr, bboxes = self._preprocess_img(*self._parse_annotation(full_path))
             X.append(img_arr)
             y.append(self._create_target(bboxes))
-        return X, y
+        return np.array(X), np.array(y)
 
     def __len__(self):
         return self.total_batch
@@ -151,6 +152,7 @@ class PascalVOCDataset(Sequence):
 
 
 if __name__ == '__main__':
-    dataset = PascalVOCDataset('dataset/VOC2012_train_val/JPEGImages', 'dataset/VOC2012_train_val/Annotations')
+    dataset = PascalVOCDataset('dataset/VOC2012_train/JPEGImages', 'dataset/VOC2012_train/Annotations')
     X, y = dataset[0]
+    print(X.shape, y.shape)
     visualize_img(X[0], y[0], {v: k for k, v in label_dict.items()})

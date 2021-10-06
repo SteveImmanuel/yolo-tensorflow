@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from yolo.v1.utils import calculate_iou, argmax_to_max
+from yolo.utils import calculate_iou, argmax_to_max
 
 
 class YoloV1Loss():

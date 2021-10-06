@@ -35,7 +35,7 @@ class YoloV1Loss():
         bbox_indexes = tf.math.argmax(iou_candidates, axis=0)
         return tf.expand_dims(bbox_indexes, axis=-1)
 
-    @tf.function
+    # @tf.function
     def bbox_loss(self, y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """Calculate bounding box loss. Only check the bounding box with highest IoU
 
@@ -47,7 +47,7 @@ class YoloV1Loss():
             tf.Tensor: (1,)
         """
         xy_loss = tf.math.squared_difference(y_true[..., 1:3], y_pred[..., 1:3])
-        wh_loss = tf.math.squared_difference(tf.math.sqrt(y_true[..., 3:]), tf.math.sqrt(y_pred[..., 3:]))
+        wh_loss = tf.math.squared_difference(tf.math.sqrt(y_true[..., 3:]), tf.math.sqrt(tf.math.abs(y_pred[..., 3:])))
         return tf.math.reduce_sum(xy_loss + wh_loss)
 
     def anchor_box_loss(self, y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
@@ -61,7 +61,7 @@ class YoloV1Loss():
             tf.Tensor
         """
         gtruth_bbox = y_true[..., 0:5]
-        pred_unpack = tf.reshape(y_pred, (*y_pred.shape[:-1], -1, 5))
+        pred_unpack = tf.reshape(y_pred, [tf.shape(y_pred)[0], tf.shape(y_pred)[1], tf.shape(y_pred)[2], self.B, 5])
         bbox_indexes = self.get_responsible_bbox(gtruth_bbox, pred_unpack)
 
         is_object_exist = y_true[..., 0:1]  # (BATCH_SIZE, S, S, 1)
@@ -69,17 +69,17 @@ class YoloV1Loss():
         pred_bbox = is_object_exist * argmax_to_max(pred_unpack.numpy(), bbox_indexes.numpy(), axis=3)  # (BATCH_SIZE, S, S, 5)
 
         bbox_loss = self.bbox_loss(gtruth_bbox, pred_bbox)
-
         object_loss = tf.math.reduce_sum(tf.math.squared_difference(gtruth_bbox[..., 0], pred_bbox[..., 0]))
 
-        no_object_loss = tf.zeros(*is_object_exist.shape[:-1])
+        no_object_loss = tf.zeros([*is_object_exist.shape[:-1]], dtype='float32')
         for i in range(self.B):
             no_object_loss += (1 - is_object_exist[..., 0]) * tf.math.squared_difference(gtruth_bbox[..., 0], pred_unpack[:, :, :, i, 0])
+
         no_object_loss = tf.math.reduce_sum(no_object_loss)
 
         return bbox_loss * self.lambda_coord + object_loss + no_object_loss * self.lambda_noobj
 
-    @tf.function
+    # @tf.function
     def class_loss(self, y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """Calculate class probability loss
 
@@ -108,8 +108,9 @@ class YoloV1Loss():
 
 
 if __name__ == '__main__':
-    y_true = np.zeros((1, 2, 2, 7))
-    y_pred = np.ones((1, 2, 2, 7))
-    loss = YoloV1Loss(C=2, B=1, lambda_coord=1, lambda_noobj=1)
+    y_true = np.zeros((64, 7, 7, 30))
+    y_pred = np.ones((64, 7, 7, 30))
+    loss = YoloV1Loss(C=20, B=2)
     res = loss.total_loss(y_true, y_pred)
-    assert res == 12
+    print(res)
+    # assert res == 12

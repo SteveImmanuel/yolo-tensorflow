@@ -103,5 +103,48 @@ def bbox_coordinate_to_mid_point(bbox: Iterable[int]) -> Iterable[int]:
     return (xmin + xmax) // 2, (ymin + ymax) // 2, (xmax - xmin), (ymax - ymin)
 
 
+def normalize_bbox(bbox: NDArray, cell_width: float, cell_height: float) -> Tuple[int, int, NDArray]:
+    """Convert bounding box coordinate in normalized grid
+
+    Args:
+        bbox (NDArray): C, x, y, w, h
+        cell_width (float)
+        cell_height (float)
+
+    Returns:
+        Tuple[int, int, NDArray]: row, col, bbox
+    """
+    col = int(bbox[1] // cell_width)
+    row = int(bbox[2] // cell_height)
+    bbox[1] = (bbox[1] % cell_width) / cell_width
+    bbox[2] = (bbox[2] % cell_height) / cell_height
+    bbox[3] = bbox[3] / cell_width
+    bbox[4] = bbox[4] / cell_height
+    return row, col, bbox
+
+
+def unpack_bbox(row: int, col: int, cell_width: float, cell_height: float, bbox: NDArray) -> NDArray:
+    """Convert normalized bounding box into original coordinate
+
+    Args:
+        row (int)
+        col (int)
+        cell_width (float)
+        cell_height (float)
+        bbox (NDArray): C, x, y, w, h
+
+    Returns:
+        NDArray: bbox
+    """
+    offset_x = col * cell_width
+    offset_y = row * cell_height
+    bbox[1] = bbox[1] * cell_width + offset_x
+    bbox[2] = bbox[2] * cell_height + offset_y
+    bbox[3] = bbox[3] * cell_width
+    bbox[4] = bbox[4] * cell_height
+    bbox = bbox.astype(int)
+    return bbox
+
+
 if __name__ == '__main__':
     assert calculate_iou(tf.constant([[.25, .25, .5, .5]]), tf.constant([[.75, .75, .5, .5]])).numpy() == 0

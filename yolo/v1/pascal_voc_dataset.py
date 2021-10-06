@@ -6,7 +6,8 @@ import xml.etree.ElementTree as ET
 from typing import Tuple
 from nptyping import NDArray
 from tensorflow.keras.utils import Sequence
-from yolo.utils import resize_image_and_bbox, bbox_coordinate_to_mid_point
+from yolo.utils import resize_image_and_bbox, bbox_coordinate_to_mid_point, normalize_bbox
+from yolo.visualization import visualize_img
 
 label_dict = {
     'aeroplane': 0,
@@ -114,25 +115,6 @@ class PascalVOCDataset(Sequence):
 
         return resized_img_arr, bboxes
 
-    def _normalize_bbox(self, bbox: NDArray) -> Tuple[int, int, NDArray]:
-        col = int(bbox[1] // self.cell_width)
-        row = int(bbox[2] // self.cell_height)
-        bbox[1] = (bbox[1] % self.cell_width) / self.cell_width
-        bbox[2] = (bbox[2] % self.cell_height) / self.cell_height
-        bbox[3] = bbox[3] / self.cell_width
-        bbox[4] = bbox[4] / self.cell_height
-        return row, col, bbox
-
-    def _unpack_bbox(self, row: int, col: int, bbox: NDArray) -> NDArray:
-        offset_x = col * self.cell_width
-        offset_y = row * self.cell_height
-        bbox[1] = bbox[1] * self.cell_width + offset_x
-        bbox[2] = bbox[2] * self.cell_height + offset_y
-        bbox[3] = bbox[3] * self.cell_width
-        bbox[4] = bbox[4] * self.cell_height
-        bbox = bbox.astype(int)
-        return bbox
-
     def _create_target(self, bboxes: NDArray[NDArray]) -> NDArray:
         target = np.zeros((self.S, self.S, 20 + self.B * 5), dtype=np.float32)
 
@@ -140,7 +122,7 @@ class PascalVOCDataset(Sequence):
         bboxes[:, 1:] = list(map(lambda x: bbox_coordinate_to_mid_point(x[1:]), bboxes))  # TOTAL_BBOX, 5
 
         for bbox in bboxes:
-            row, col, bbox = self._normalize_bbox(bbox)
+            row, col, bbox = normalize_bbox(bbox, self.cell_width, self.cell_height)
             target[row][col][20] = 1
             target[row][col][21:25] = bbox[1:]
             target[row][col][int(bbox[0])] = 1
@@ -153,7 +135,6 @@ class PascalVOCDataset(Sequence):
         y = []
         for path in selected_annot_paths:
             full_path = os.path.join(self.annotation_dir, path)
-            print(full_path)
             img_arr, bboxes = self._preprocess_img(*self._parse_annotation(full_path))
             X.append(img_arr)
             y.append(self._create_target(bboxes))
@@ -171,4 +152,5 @@ class PascalVOCDataset(Sequence):
 
 if __name__ == '__main__':
     dataset = PascalVOCDataset('dataset/VOC2012_train_val/JPEGImages', 'dataset/VOC2012_train_val/Annotations')
-    X,y = dataset[0]
+    X, y = dataset[0]
+    visualize_img(X[0], y[0], {v: k for k, v in label_dict.items()})

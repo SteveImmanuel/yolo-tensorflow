@@ -41,3 +41,5 @@ FAST_ARCHITECTURE = {
         ],
     'FC_LAYER': 512
 }
+
+LEARNING_RATE=1e-3

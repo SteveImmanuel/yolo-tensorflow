@@ -66,15 +66,16 @@ class YoloV1Loss():
 
         is_object_exist = y_true[..., 0:1]  # (BATCH_SIZE, S, S, 1)
         gtruth_bbox *= is_object_exist  # (BATCH_SIZE, S, S, 5)
-        pred_bbox = is_object_exist * argmax_to_max(pred_unpack.numpy(), bbox_indexes.numpy(), axis=3)
+        pred_bbox = is_object_exist * argmax_to_max(pred_unpack.numpy(), bbox_indexes.numpy(), axis=3)  # (BATCH_SIZE, S, S, 5)
 
         bbox_loss = self.bbox_loss(gtruth_bbox, pred_bbox)
 
         object_loss = tf.math.reduce_sum(tf.math.squared_difference(gtruth_bbox[..., 0], pred_bbox[..., 0]))
 
-        no_object_loss = 0
+        no_object_loss = tf.zeros(*is_object_exist.shape[:-1])
         for i in range(self.B):
-            no_object_loss += tf.math.reduce_sum(tf.math.squared_difference(gtruth_bbox[..., 0], pred_unpack[:, :, :, i, 0]))
+            no_object_loss += (1 - is_object_exist[..., 0]) * tf.math.squared_difference(gtruth_bbox[..., 0], pred_unpack[:, :, :, i, 0])
+        no_object_loss = tf.math.reduce_sum(no_object_loss)
 
         return bbox_loss * self.lambda_coord + object_loss + no_object_loss * self.lambda_noobj
 
@@ -107,7 +108,8 @@ class YoloV1Loss():
 
 
 if __name__ == '__main__':
-    y_truth = np.random.rand(100, 19, 19, 30)
-    y_pred = np.random.rand(100, 19, 19, 30)
-    loss = YoloV1Loss()
-    print(loss.total_loss(y_truth, y_pred))
+    y_true = np.zeros((1, 2, 2, 7))
+    y_pred = np.ones((1, 2, 2, 7))
+    loss = YoloV1Loss(C=2, B=1, lambda_coord=1, lambda_noobj=1)
+    res = loss.total_loss(y_true, y_pred)
+    assert res == 12

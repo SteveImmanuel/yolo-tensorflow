@@ -60,7 +60,7 @@ def argmax_to_max(arr, argmax, axis):
     return arr[tuple(grid)]
 
 
-def resize_image_and_bbox(img_arr: NDArray, bbox_arr: Iterable[Iterable[int]], new_dim: Iterable) -> Tuple[NDArray, Iterable]:
+def resize_image_and_bbox(img_arr: NDArray, bbox_arr: Iterable[Iterable[int]], new_dim: Iterable) -> Tuple[NDArray, NDArray]:
     """Resize image alongside its bounding boxes
 
     Args:
@@ -69,13 +69,38 @@ def resize_image_and_bbox(img_arr: NDArray, bbox_arr: Iterable[Iterable[int]], n
         new_dim (NDArray): widht, height
 
     Returns:
-        Tuple[NDArray, Iterable]: resized img_arr and bounding boxes
+        Tuple[NDArray, NDArray]: resized img_arr and bounding boxes
     """
     ori_shape = img_arr.shape
     mat = np.array([[new_dim[0] / ori_shape[1], 0], [0, new_dim[1] / ori_shape[0]]], dtype=np.float32)
-    new_bbox = list(map(lambda x: np.matmul(mat, x).astype(int), bbox_arr))
+    new_bbox = np.array(list(map(lambda x: np.matmul(mat, x).astype(int), bbox_arr)))
     new_img_arr = cv2.resize(img_arr, new_dim)
     return new_img_arr, new_bbox
+
+
+def bbox_mid_point_to_coordinate(bbox: Iterable[int]) -> Iterable[int]:
+    """Convert x,y,w,h format to xmin,ymin,xmax,ymax
+
+    Args:
+        bbox (Iterable[int])
+
+    Returns:
+        Iterable[int]
+    """
+    x, y, w, h = bbox
+    return x - w // 2, y - h // 2, x + w // 2, y + h // 2
+
+
+def bbox_coordinate_to_mid_point(bbox: Iterable[int]) -> Iterable[int]:
+    """Convert xmin,ymin,xmax,ymax format to x,y,w,h 
+
+    Args:
+        bbox (Iterable[int])
+    Returns:
+        Iterable[int]
+    """
+    xmin, ymin, xmax, ymax = bbox
+    return (xmin + xmax) // 2, (ymin + ymax) // 2, (xmax - xmin), (ymax - ymin)
 
 
 if __name__ == '__main__':

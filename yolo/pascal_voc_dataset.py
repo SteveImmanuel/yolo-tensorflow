@@ -87,26 +87,29 @@ class PascalVOCDataset(Sequence):
         self.annot_paths = self.annot_paths[random_ids]
 
     def _parse_annotation(self, annot_path: str) -> Tuple[NDArray, NDArray[NDArray]]:
-        xml_file = open(annot_path, 'r')
-        tree = ET.parse(xml_file)
-        root = tree.getroot()
+        try:
+            xml_file = open(annot_path, 'r')
+            tree = ET.parse(xml_file)
+            root = tree.getroot()
 
-        img_filename = root.find('filename').text
-        objects = root.findall('.//object')
-        bboxes = []
-        for object in objects:
-            label = object.find('name').text
-            bbox = object.find('bndbox')
-            xmin, ymin = int(bbox.find('xmin').text), int(bbox.find('ymin').text)
-            xmax, ymax = int(bbox.find('xmax').text), int(bbox.find('ymax').text)
-            bboxes.append([label_dict[label], xmin, ymin, xmax, ymax])
+            img_filename = root.find('filename').text
+            objects = root.findall('.//object')
+            bboxes = []
+            for object in objects:
+                label = object.find('name').text
+                bbox = object.find('bndbox')
+                xmin, ymin = int(float(bbox.find('xmin').text)), int(float(bbox.find('ymin').text))
+                xmax, ymax = int(float(bbox.find('xmax').text)), int(float(bbox.find('ymax').text))
+                bboxes.append([label_dict[label], xmin, ymin, xmax, ymax])
 
-        img_path = os.path.join(self.img_dir, img_filename)
-        img_arr = cv2.imread(img_path)
-        img_arr = (img_arr / 255.0 - 0.5) * 2
+            img_path = os.path.join(self.img_dir, img_filename)
+            img_arr = cv2.imread(img_path)
+            img_arr = (img_arr / 255.0 - 0.5) * 2
 
-        xml_file.close()
-        return img_arr, np.array(bboxes)
+            xml_file.close()
+            return img_arr, np.array(bboxes)
+        except:
+            print('error xml parse', annot_path)
 
     def _preprocess_img(self, img_arr: NDArray, bboxes: NDArray[NDArray]) -> Tuple[NDArray, NDArray[NDArray]]:
         bboxes_coord = bboxes[:, 1:].reshape(-1, 2)

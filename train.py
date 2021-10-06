@@ -15,6 +15,8 @@ if __name__ == '__main__':
     parser.add_argument('--val-img-dir', help='Directory path to validation images', required=True)
     parser.add_argument('--batch-size', help='Batch size for training', default=16, type=int)
     parser.add_argument('--epoch', help='Total epoch', default=20, type=int)
+    parser.add_argument('--load-pretrained', help='Load latest checkpoint', action='store_true')
+
     
     args = parser.parse_args()
     train_annot_dir = args.train_annot_dir
@@ -22,6 +24,7 @@ if __name__ == '__main__':
     val_annot_dir = args.val_annot_dir
     val_img_dir = args.val_img_dir
     batch_size = args.batch_size
+    load_pretrained = args.load_pretrained
     epoch = args.epoch
 
     model = FastYoloV1Model()
@@ -34,7 +37,11 @@ if __name__ == '__main__':
     ckpt_cb = ModelCheckpoint('checkpoints/v1-fast', monitor='val_loss', mode='min', save_best_only=True)
     reduce_lr_cb = ReduceLROnPlateau(monitor='val_loss', factor=.5, patience=3, verbose=1, mode='min')
 
+    if load_pretrained:
+        model.load_weights('checkpoints/v1-fast')
+
     train_dataset = PascalVOCDataset(train_img_dir, train_annot_dir, batch_size)
     val_dataset = PascalVOCDataset(val_img_dir, val_annot_dir, batch_size=16)
 
     model.fit(train_dataset, validation_data=val_dataset, epochs=20, callbacks=[ckpt_cb, reduce_lr_cb])
+    model.save('checkpoints/v1-fast/pretrained/20_epoch.ckpt')

@@ -44,4 +44,5 @@ class WriteImages(Callback):
                 f'Object Detection Epoch-{epoch}',
                 result,
                 max_outputs=self.max_outputs,
+                step=epoch
             )

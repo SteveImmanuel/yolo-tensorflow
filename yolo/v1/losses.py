@@ -36,11 +36,10 @@ class YoloV1Loss():
 
         bbox_indexes = tf.one_hot(bbox_indexes, depth=self.B)
         bbox_indexes = tf.reshape(bbox_indexes, [tf.shape(bbox_indexes)[0], tf.shape(bbox_indexes)[1], tf.shape(bbox_indexes)[2], self.B])
-        bbox_indexes = tf.repeat(bbox_indexes, repeats=5, axis=3) # 5 from C, x, y, w, h
+        bbox_indexes = tf.repeat(bbox_indexes, repeats=5, axis=3)  # 5 from C, x, y, w, h
         bbox_indexes = tf.reshape(bbox_indexes, tf.shape(y_pred))
         return bbox_indexes
 
-    # @tf.function
     def bbox_loss(self, y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """Calculate bounding box loss. Only check the bounding box with highest IoU
 
@@ -82,7 +81,10 @@ class YoloV1Loss():
             tf.math.reduce_sum(tf.math.squared_difference(gtruth_bbox[..., 0], pred_bbox[..., 0]), axis=(1, 2))
         )
 
-        no_object_loss = tf.zeros([*is_object_exist.shape[:-1]], dtype='float32')
+        no_object_loss = tf.zeros(
+            (tf.shape(is_object_exist)[0], tf.shape(is_object_exist)[1], tf.shape(is_object_exist)[2]), dtype=tf.float32
+        )
+        print(no_object_loss)
         for i in range(self.B):
             no_object_loss += (1 - is_object_exist[..., 0]) * tf.math.squared_difference(gtruth_bbox[..., 0], pred_unpack[:, :, :, i, 0])
 
@@ -90,7 +92,6 @@ class YoloV1Loss():
 
         return bbox_loss * self.lambda_coord + object_loss + no_object_loss * self.lambda_noobj
 
-    # @tf.function
     def class_loss(self, y_true: tf.Tensor, y_pred: tf.Tensor, is_object_exist: tf.Tensor) -> tf.Tensor:
         """Calculate class probability loss
 
@@ -126,4 +127,3 @@ if __name__ == '__main__':
     loss = YoloV1Loss(C=20, B=2)
     res = loss.total_loss(y_true, y_pred)
     print(res)
-    # assert res == 12

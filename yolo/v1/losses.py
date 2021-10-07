@@ -84,7 +84,6 @@ class YoloV1Loss():
         no_object_loss = tf.zeros(
             (tf.shape(is_object_exist)[0], tf.shape(is_object_exist)[1], tf.shape(is_object_exist)[2]), dtype=tf.float32
         )
-        print(no_object_loss)
         for i in range(self.B):
             no_object_loss += (1 - is_object_exist[..., 0]) * tf.math.squared_difference(gtruth_bbox[..., 0], pred_unpack[:, :, :, i, 0])
 

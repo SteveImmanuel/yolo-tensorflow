@@ -33,7 +33,7 @@ if __name__ == '__main__':
     model.build(input_shape=(None, 448, 448, 3))
     model.call(Input(shape=(448, 448, 3)))
     model.summary()
-    model.compile(optimizer=Adam(LEARNING_RATE), loss=loss.total_loss, run_eagerly=True)
+    model.compile(optimizer=Adam(LEARNING_RATE, beta_1=0.5, beta_2=0.995), loss=loss.total_loss, run_eagerly=True)
 
     ckpt_path = 'checkpoints/v1-fast/cp-{epoch:04d}.ckpt'
     ckpt_cb = ModelCheckpoint(ckpt_path, monitor='val_loss', mode='min', verbose=1)
@@ -49,3 +49,5 @@ if __name__ == '__main__':
 
     model.fit(train_dataset, validation_data=val_dataset, epochs=epoch, callbacks=[ckpt_cb, reduce_lr_cb, tensorboard_cb])
     model.save(os.path.join(os.path.dirname(ckpt_path), 'end_train'))
+
+# python train.py --train-annot-dir=dataset/VOC2012_train/Annotations --train-img-dir=dataset/VOC2012_train/JPEGImages --val-annot-dir=dataset/VOC2012_val/Annotations --val-img-dir=dataset/VOC2012_val/JPEGImages --batch-size=16 --epoch=20

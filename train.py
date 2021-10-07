@@ -1,6 +1,8 @@
 import argparse
+import os
+import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
+from tensorflow.keras.callbacks import ReduceLROnPlateau, ModelCheckpoint, TensorBoard
 from tensorflow.keras import Input
 from yolo.v1.config import LEARNING_RATE
 from yolo.v1.model import FastYoloV1Model
@@ -17,7 +19,6 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', help='Total epoch', default=20, type=int)
     parser.add_argument('--load-pretrained', help='Load latest checkpoint', action='store_true')
 
-    
     args = parser.parse_args()
     train_annot_dir = args.train_annot_dir
     train_img_dir = args.train_img_dir
@@ -34,14 +35,17 @@ if __name__ == '__main__':
     model.summary()
     model.compile(optimizer=Adam(LEARNING_RATE), loss=loss.total_loss, run_eagerly=True)
 
-    ckpt_cb = ModelCheckpoint('checkpoints/v1-fast', monitor='val_loss', mode='min', save_best_only=True)
-    reduce_lr_cb = ReduceLROnPlateau(monitor='val_loss', factor=.5, patience=3, verbose=1, mode='min')
+    ckpt_path = 'checkpoints/v1-fast/cp-{epoch:04d}.ckpt'
+    ckpt_cb = ModelCheckpoint(ckpt_path, monitor='val_loss', mode='min', verbose=1)
+    reduce_lr_cb = ReduceLROnPlateau(monitor='val_loss', factor=.2, patience=3, verbose=1, mode='min')
+    tensorboard_cb = TensorBoard(log_dir='logs/v1-fast', histogram_freq=0, write_graph=True, update_freq=50)
 
     if load_pretrained:
-        model.load_weights('checkpoints/v1-fast')
+        latest_ckpt = tf.train.latest_checkpoint(os.path.dirname(ckpt_path))
+        model = tf.keras.models.load_model(latest_ckpt, custom_objects={'total_loss': loss.total_loss})
 
     train_dataset = PascalVOCDataset(train_img_dir, train_annot_dir, batch_size)
-    val_dataset = PascalVOCDataset(val_img_dir, val_annot_dir, batch_size=16)
+    val_dataset = PascalVOCDataset(val_img_dir, val_annot_dir, batch_size)
 
-    model.fit(train_dataset, validation_data=val_dataset, epochs=20, callbacks=[ckpt_cb, reduce_lr_cb])
-    model.save('checkpoints/v1-fast/pretrained/20_epoch.ckpt')
+    model.fit(train_dataset, validation_data=val_dataset, epochs=epoch, callbacks=[ckpt_cb, reduce_lr_cb, tensorboard_cb])
+    model.save(os.path.join(os.path.dirname(ckpt_path), 'end_train'))

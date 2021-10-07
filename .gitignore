@@ -147,3 +147,5 @@ cython_debug/
 dataset/*
 checkpoints/*
 logs/*
+!checkpoints/.gitkeep
+!logs/.gitkeep

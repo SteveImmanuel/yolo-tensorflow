@@ -26,14 +26,19 @@ class YoloV1Loss():
             y_pred (tf.Tensor): (BATCH_SIZE, S, S, B, 5)
 
         Returns:
-            tf.Tensor: index of bounding box (BATCH_SIZE, S, S, 1)
+            tf.Tensor: index of bounding box (BATCH_SIZE, S, S, B, 5)
         """
         iou_candidates = []
         for i in range(y_pred.shape[3]):
             iou_candidates.append(calculate_iou(y_true, y_pred[:, :, :, i, :]))
         iou_candidates = tf.convert_to_tensor(iou_candidates)
         bbox_indexes = tf.math.argmax(iou_candidates, axis=0)
-        return tf.expand_dims(bbox_indexes, axis=-1)
+
+        bbox_indexes = tf.one_hot(bbox_indexes, depth=self.B)
+        bbox_indexes = tf.reshape(bbox_indexes, [tf.shape(bbox_indexes)[0], tf.shape(bbox_indexes)[1], tf.shape(bbox_indexes)[2], self.B])
+        bbox_indexes = tf.repeat(bbox_indexes, repeats=5, axis=3) # 5 from C, x, y, w, h
+        bbox_indexes = tf.reshape(bbox_indexes, tf.shape(y_pred))
+        return bbox_indexes
 
     # @tf.function
     def bbox_loss(self, y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
@@ -47,15 +52,20 @@ class YoloV1Loss():
             tf.Tensor: (1,)
         """
         xy_loss = tf.math.squared_difference(y_true[..., 1:3], y_pred[..., 1:3])
-        wh_loss = tf.math.squared_difference(tf.math.sqrt(y_true[..., 3:]), tf.math.sqrt(tf.math.abs(y_pred[..., 3:])))
+        wh_loss = tf.math.squared_difference(
+            tf.math.sqrt(y_true[..., 3:]),
+            tf.math.sign(y_pred[..., 3:]) * tf.math.sqrt(tf.math.abs(y_pred[..., 3:]))
+        )
+
         return tf.math.reduce_mean(tf.math.reduce_sum(xy_loss + wh_loss, axis=(1, 2, 3)))
 
-    def anchor_box_loss(self, y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+    def anchor_box_loss(self, y_true: tf.Tensor, y_pred: tf.Tensor, is_object_exist: tf.Tensor) -> tf.Tensor:
         """Calculate bbox and object loss. Only check the bounding box with highest IoU
 
         Args:
             y_true (tf.Tensor): (BATCH_SIZE, S, S, 5*B)
             y_pred (tf.Tensor): (BATCH_SIZE, S, S, 5*B)
+            is_object_exist (tf.Tensor): (BATCH_SIZE, S, S, 1)
 
         Returns:
             tf.Tensor
@@ -64,9 +74,8 @@ class YoloV1Loss():
         pred_unpack = tf.reshape(y_pred, [tf.shape(y_pred)[0], tf.shape(y_pred)[1], tf.shape(y_pred)[2], self.B, 5])
         bbox_indexes = self.get_responsible_bbox(gtruth_bbox, pred_unpack)
 
-        is_object_exist = y_true[..., 0:1]  # (BATCH_SIZE, S, S, 1)
         gtruth_bbox *= is_object_exist  # (BATCH_SIZE, S, S, 5)
-        pred_bbox = is_object_exist * argmax_to_max(pred_unpack.numpy(), bbox_indexes.numpy(), axis=3)  # (BATCH_SIZE, S, S, 5)
+        pred_bbox = is_object_exist * tf.math.reduce_sum(bbox_indexes * pred_unpack, axis=3)
 
         bbox_loss = self.bbox_loss(gtruth_bbox, pred_bbox)
         object_loss = tf.math.reduce_mean(
@@ -82,17 +91,18 @@ class YoloV1Loss():
         return bbox_loss * self.lambda_coord + object_loss + no_object_loss * self.lambda_noobj
 
     # @tf.function
-    def class_loss(self, y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+    def class_loss(self, y_true: tf.Tensor, y_pred: tf.Tensor, is_object_exist: tf.Tensor) -> tf.Tensor:
         """Calculate class probability loss
 
         Args:
             y_true (tf.Tensor): (BATCH_SIZE, S, S, C)
             y_pred (tf.Tensor): (BATCH_SIZE, S, S, C)
+            is_object_exist (tf.Tensor): (BATCH_SIZE, S, S, 1)
 
         Returns:
             tf.Tensor
         """
-        return tf.math.reduce_mean(tf.math.reduce_sum(tf.math.squared_difference(y_true, y_pred), axis=(1, 2, 3)))
+        return tf.math.reduce_mean(tf.math.reduce_sum(is_object_exist * tf.math.squared_difference(y_true, y_pred), axis=(1, 2, 3)))
 
     def total_loss(self, y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """Calculate total loss from YoloV1 Paper
@@ -104,8 +114,9 @@ class YoloV1Loss():
         Returns:
             tf.Tensor
         """
-        class_loss = self.class_loss(y_true[..., :self.C], y_pred[..., :self.C])
-        anchor_box_loss = self.anchor_box_loss(y_true[..., self.C:], y_pred[..., self.C:])
+        is_object_exist = y_true[..., 20:21]  # (BATCH_SIZE, S, S, 1)
+        class_loss = self.class_loss(y_true[..., :self.C], y_pred[..., :self.C], is_object_exist)
+        anchor_box_loss = self.anchor_box_loss(y_true[..., self.C:], y_pred[..., self.C:], is_object_exist)
         return class_loss + anchor_box_loss
 
 

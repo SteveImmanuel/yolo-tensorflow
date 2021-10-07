@@ -48,7 +48,7 @@ class YoloV1Loss():
         """
         xy_loss = tf.math.squared_difference(y_true[..., 1:3], y_pred[..., 1:3])
         wh_loss = tf.math.squared_difference(tf.math.sqrt(y_true[..., 3:]), tf.math.sqrt(tf.math.abs(y_pred[..., 3:])))
-        return tf.math.reduce_sum(xy_loss + wh_loss)
+        return tf.math.reduce_mean(tf.math.reduce_sum(xy_loss + wh_loss, axis=(1, 2, 3)))
 
     def anchor_box_loss(self, y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """Calculate bbox and object loss. Only check the bounding box with highest IoU
@@ -69,13 +69,15 @@ class YoloV1Loss():
         pred_bbox = is_object_exist * argmax_to_max(pred_unpack.numpy(), bbox_indexes.numpy(), axis=3)  # (BATCH_SIZE, S, S, 5)
 
         bbox_loss = self.bbox_loss(gtruth_bbox, pred_bbox)
-        object_loss = tf.math.reduce_sum(tf.math.squared_difference(gtruth_bbox[..., 0], pred_bbox[..., 0]))
+        object_loss = tf.math.reduce_mean(
+            tf.math.reduce_sum(tf.math.squared_difference(gtruth_bbox[..., 0], pred_bbox[..., 0]), axis=(1, 2))
+        )
 
         no_object_loss = tf.zeros([*is_object_exist.shape[:-1]], dtype='float32')
         for i in range(self.B):
             no_object_loss += (1 - is_object_exist[..., 0]) * tf.math.squared_difference(gtruth_bbox[..., 0], pred_unpack[:, :, :, i, 0])
 
-        no_object_loss = tf.math.reduce_sum(no_object_loss)
+        no_object_loss = tf.math.reduce_mean(tf.math.reduce_sum(no_object_loss, axis=(1, 2)))
 
         return bbox_loss * self.lambda_coord + object_loss + no_object_loss * self.lambda_noobj
 
@@ -90,7 +92,7 @@ class YoloV1Loss():
         Returns:
             tf.Tensor
         """
-        return tf.math.reduce_sum(tf.math.squared_difference(y_true, y_pred))
+        return tf.math.reduce_mean(tf.math.reduce_sum(tf.math.squared_difference(y_true, y_pred), axis=(1, 2, 3)))
 
     def total_loss(self, y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """Calculate total loss from YoloV1 Paper

@@ -33,28 +33,6 @@ label_dict = {
 }
 
 
-def parse_annotation(annot_path, img_dir):
-    xml_file = open(annot_path, 'r')
-    tree = ET.parse(xml_file)
-    root = tree.getroot()
-
-    img_filename = root.find('filename').text
-    objects = root.findall('.//object')
-    bboxes = []
-    for object in objects:
-        label = object.find('name').text
-        bbox = object.find('bndbox')
-        xmin, ymin = int(bbox.find('xmin').text), int(bbox.find('ymin').text)
-        xmax, ymax = int(bbox.find('xmax').text), int(bbox.find('ymax').text)
-        bboxes.append([label_dict[label], xmin, ymin, xmax, ymax])
-
-    img_path = os.path.join(img_dir, img_filename)
-    img_arr = cv2.imread(img_path)
-
-    xml_file.close()
-    return img_arr, np.array(bboxes)
-
-
 class PascalVOCDataset(Sequence):
     def __init__(
         self,
@@ -63,7 +41,8 @@ class PascalVOCDataset(Sequence):
         batch_size: int = 64,
         input_dim: Tuple[int, int] = (448, 448),
         S: int = 7,
-        B: int = 2
+        B: int = 2,
+        test_overfit: bool = False,
     ) -> None:
         super(PascalVOCDataset, self).__init__()
         self.img_dir = img_dir
@@ -72,6 +51,7 @@ class PascalVOCDataset(Sequence):
         self.B = B
         self.input_dim = input_dim
         self.batch_size = batch_size
+        self.test_overfit = test_overfit
 
         self._initialize_data()
         self.cell_width = float(self.input_dim[1]) / self.S
@@ -145,13 +125,16 @@ class PascalVOCDataset(Sequence):
         return np.array(X), np.array(y)
 
     def __len__(self):
+        if self.test_overfit:
+            return 2
         return self.total_batch
 
     def __getitem__(self, index):
         return self._generate_batch(index)
 
     def on_epoch_end(self):
-        self._shuffle_data()
+        if not self.test_overfit:
+            self._shuffle_data()
 
 
 if __name__ == '__main__':

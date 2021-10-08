@@ -6,7 +6,7 @@ from typing import Dict
 from yolo.utils import unpack_bbox, bbox_mid_point_to_coordinate
 
 
-def decode_img(img_arr: NDArray, output_matrix: NDArray, label_dict: Dict, min_confidence: float = .8, normalize: bool = True) -> None:
+def decode_img(img_arr: NDArray, output_matrix: NDArray, label_dict: Dict, min_confidence: float = .8, normalize: bool = True) -> NDArray:
     """Add bounding box and label to image based on output_matrix
 
     Args:
@@ -23,7 +23,7 @@ def decode_img(img_arr: NDArray, output_matrix: NDArray, label_dict: Dict, min_c
             object_label = label_dict[np.argmax(output_matrix[i][j][:20])]
             max_confidence_idx = np.argmax(output_matrix[i][j][20::5])
             max_confidence = output_matrix[i][j][20 + 5 * max_confidence_idx]
-
+            
             if max_confidence < min_confidence:
                 continue
 

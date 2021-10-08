@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import MaxPool2D, Dense, Flatten, BatchNormalization, Conv2D, Dropout, ReLU, Reshape
+from tensorflow.keras.regularizers import L2
 from tensorflow.keras import Input
 from yolo.v1.config import *
 
@@ -23,20 +24,19 @@ class YoloV1Model(Model):
                     for i in range(len(layer) - 1):
                         self._add_conv_layer(layer[i])
         self.model_layers.append(Flatten())
-        self.model_layers.append(Dense(layer_config['FC_LAYER'], kernel_regularizer='l2'))
+        self.model_layers.append(Dense(layer_config['FC_LAYER'], kernel_regularizer='l1'))
         self.model_layers.append(ReLU(negative_slope=0.1))
         self.model_layers.append(Dropout(0.5))
-        self.model_layers.append(Dense(S * S * (C + 5 * B), kernel_regularizer='l2'))
-        self.model_layers.append(ReLU(negative_slope=0.1))
+        self.model_layers.append(Dense(S * S * (C + 5 * B), kernel_regularizer='l1'))
+        self.model_layers.append(ReLU())
         self.model_layers.append(Reshape((S, S, (C + 5 * B))))
 
     def _add_conv_layer(self, layer_config):
         self.model_layers.append(
-            Conv2D(layer_config[0], layer_config[1], layer_config[2], padding='same', kernel_regularizer='l2', use_bias=False)
+            Conv2D(layer_config[0], layer_config[1], layer_config[2], padding='same', kernel_regularizer=L2(l2=0.005), use_bias=False)
         )
         self.model_layers.append(BatchNormalization())
         self.model_layers.append(ReLU(negative_slope=0.1))
-        self.model_layers.append(Dropout(0.1))
 
     def call(self, inputs):
         for layer in self.model_layers:

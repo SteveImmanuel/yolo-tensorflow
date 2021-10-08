@@ -63,12 +63,12 @@ if __name__ == '__main__':
     log_dir = 'logs/v1-fast'
     ckpt_cb = ModelCheckpoint(ckpt_path, monitor='val_loss', mode='min', verbose=1)
     tensorboard_cb = TensorBoard(log_dir, histogram_freq=0, write_graph=True, update_freq=50)
-    early_stop_cb = EarlyStopping(monitor='val_loss', patience=4, mode='min', verbose=1)
+    early_stop_cb = EarlyStopping(monitor='val_loss', patience=7, mode='min', verbose=1)
     if test_overfit:
         reduce_lr_cb = ReduceLROnPlateau(monitor='loss', factor=.2, patience=10, verbose=1, mode='min')
         write_images_cb = WriteImages(os.path.join(log_dir, 'images'), train_dataset, {v: k for k, v in label_dict.items()})
     else:
-        reduce_lr_cb = ReduceLROnPlateau(monitor='val_loss', factor=.2, patience=2, verbose=1, mode='min')
+        reduce_lr_cb = ReduceLROnPlateau(monitor='val_loss', factor=.2, patience=3, verbose=1, mode='min')
         write_images_cb = WriteImages(os.path.join(log_dir, 'images'), val_dataset, {v: k for k, v in label_dict.items()})
 
     # load pretrained model if asked

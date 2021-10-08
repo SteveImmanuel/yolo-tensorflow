@@ -149,3 +149,6 @@ checkpoints/*
 logs/*
 !checkpoints/.gitkeep
 !logs/.gitkeep
+*.jpg
+*.jpeg
+*.png

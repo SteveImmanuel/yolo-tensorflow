@@ -2,7 +2,7 @@ import argparse
 import os
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import ReduceLROnPlateau, ModelCheckpoint, TensorBoard
+from tensorflow.keras.callbacks import ReduceLROnPlateau, ModelCheckpoint, TensorBoard, EarlyStopping
 from tensorflow.keras import Input
 from yolo.v1.model import FastYoloV1Model, YoloV1Model
 from yolo.v1.losses import YoloV1Loss
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', help='Total epoch', default=20, type=int)
     parser.add_argument('--learning-rate', help='Learning rate for training', default=1e-3, type=float)
     parser.add_argument('--test-overfit', help='Sanity check to test overfit model with very small dataset', action='store_true')
-    parser.add_argument('--load-pretrained', help='Load latest checkpoint', action='store_true')
+    parser.add_argument('--model-path', help='Load pretrained model')
 
     args = parser.parse_args()
     train_annot_dir = args.train_annot_dir
@@ -29,10 +29,10 @@ if __name__ == '__main__':
     val_annot_dir = args.val_annot_dir
     val_img_dir = args.val_img_dir
     batch_size = args.batch_size
-    load_pretrained = args.load_pretrained
     epoch = args.epoch
     learning_rate = args.learning_rate
     test_overfit = args.test_overfit
+    model_path = args.model_path
 
     # show training config
     print('TRAINING CONFIGURATION')
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     print('Epoch:', epoch)
     print('Learning rate:', learning_rate)
     print('Test overfit:', test_overfit)
-    print('Load pretrained:', load_pretrained)
+    print('Model path:', model_path)
 
     # Create and compile model
     model = FastYoloV1Model()
@@ -63,17 +63,18 @@ if __name__ == '__main__':
     log_dir = 'logs/v1-fast'
     ckpt_cb = ModelCheckpoint(ckpt_path, monitor='val_loss', mode='min', verbose=1)
     tensorboard_cb = TensorBoard(log_dir, histogram_freq=0, write_graph=True, update_freq=50)
+    early_stop_cb = EarlyStopping(monitor='val_loss', patience=4, mode='min', verbose=1)
     if test_overfit:
         reduce_lr_cb = ReduceLROnPlateau(monitor='loss', factor=.2, patience=10, verbose=1, mode='min')
-        write_images_cb = WriteImages(os.path.join(log_dir, 'images'), train_dataset, {v: k for k, v in label_dict.items()}, frequency=10)
+        write_images_cb = WriteImages(os.path.join(log_dir, 'images'), train_dataset, {v: k for k, v in label_dict.items()})
     else:
-        reduce_lr_cb = ReduceLROnPlateau(monitor='val_loss', factor=.2, patience=3, verbose=1, mode='min')
+        reduce_lr_cb = ReduceLROnPlateau(monitor='val_loss', factor=.2, patience=2, verbose=1, mode='min')
         write_images_cb = WriteImages(os.path.join(log_dir, 'images'), val_dataset, {v: k for k, v in label_dict.items()})
 
     # load pretrained model if asked
-    if load_pretrained:
-        latest_ckpt = tf.train.latest_checkpoint(os.path.dirname(ckpt_path))
-        model = tf.keras.models.load_model(latest_ckpt, custom_objects={'total_loss': loss.total_loss})
+    if model_path:
+        model = tf.keras.models.load_model(model_path, custom_objects={'total_loss': loss.total_loss})
+        model.compile(optimizer=Adam(learning_rate, beta_1=0.5, beta_2=0.995), loss=loss.total_loss, run_eagerly=True)
 
     # train model
     if test_overfit:
@@ -81,8 +82,11 @@ if __name__ == '__main__':
         model.save(os.path.join(os.path.dirname(ckpt_path), 'test_overfit'))
     else:
         model.fit(
-            train_dataset, validation_data=val_dataset, epochs=epoch, callbacks=[tensorboard_cb, ckpt_cb, reduce_lr_cb, write_images_cb]
+            train_dataset,
+            validation_data=val_dataset,
+            epochs=epoch,
+            callbacks=[tensorboard_cb, ckpt_cb, reduce_lr_cb, write_images_cb, early_stop_cb]
         )
         model.save(os.path.join(os.path.dirname(ckpt_path), 'end_train'))
 
-# python train.py --train-annot-dir=dataset/VOC2012_train/Annotations --train-img-dir=dataset/VOC2012_train/JPEGImages --val-annot-dir=dataset/VOC2012_val/Annotations --val-img-dir=dataset/VOC2012_val/JPEGImages --batch-size=16 --epoch=20 --learning-rate=1e-3
+# python train.py --train-annot-dir=dataset/VOC2012_train/Annotations --train-img-dir=dataset/VOC2012_train/JPEGImages --val-annot-dir=dataset/VOC2012_val/Annotations --val-img-dir=dataset/VOC2012_val/JPEGImages --batch-size=16 --epoch=20 --learning-rate=1e-3 --model-path=checkpoints/v1-fast/end_train

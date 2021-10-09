@@ -40,6 +40,7 @@ class WriteImages(Callback):
             ))
         result = np.array(result)
         with self.writer.as_default():
+            print(f'Writing images to Tensorboard, epoch:{epoch}')
             tf.summary.image(
                 f'Object Detection Epoch-{epoch}',
                 result,

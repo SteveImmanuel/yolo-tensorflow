@@ -22,6 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--learning-rate', help='Learning rate for training', default=1e-3, type=float)
     parser.add_argument('--test-overfit', help='Sanity check to test overfit model with very small dataset', action='store_true')
     parser.add_argument('--model-path', help='Load pretrained model')
+    parser.add_argument('--single-save', help='Checkpoint only saves best weight only', action='store_true')
 
     args = parser.parse_args()
     train_annot_dir = args.train_annot_dir
@@ -33,6 +34,7 @@ if __name__ == '__main__':
     learning_rate = args.learning_rate
     test_overfit = args.test_overfit
     model_path = args.model_path
+    single_save = args.single_save
 
     # show training config
     print('TRAINING CONFIGURATION')
@@ -59,9 +61,12 @@ if __name__ == '__main__':
     val_dataset = PascalVOCDataset(val_img_dir, val_annot_dir, batch_size, test_overfit=test_overfit)
 
     # define all callbacks
-    ckpt_path = 'checkpoints/v1-fast/cp-{epoch:04d}.ckpt'
     log_dir = 'logs/v1-fast'
-    ckpt_cb = ModelCheckpoint(ckpt_path, monitor='val_loss', mode='min', verbose=1)
+    if single_save:
+        ckpt_path = 'checkpoints/v1-fast/cp-{epoch:04d}.ckpt'
+    else:
+        ckpt_path = 'checkpoints/v1-fast/current_best.ckpt'
+    ckpt_cb = ModelCheckpoint(ckpt_path, monitor='val_loss', mode='min', verbose=1, save_best_only=single_save)
     tensorboard_cb = TensorBoard(log_dir, histogram_freq=0, write_graph=True, update_freq=50)
     early_stop_cb = EarlyStopping(monitor='val_loss', patience=7, mode='min', verbose=1, restore_best_weights=True)
     if test_overfit:
